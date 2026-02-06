@@ -1,4 +1,4 @@
-name: linear-release-action
+name: Linear Release
 description: Run Linear Release CLI to sync deployments with Linear releases
 author: Linear
 
