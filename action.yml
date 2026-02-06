@@ -1,5 +1,5 @@
 name: Linear Release
-description: Run Linear Release CLI to sync deployments with Linear releases
+description: Sync deployments with Linear releases
 author: Linear
 
 branding:
