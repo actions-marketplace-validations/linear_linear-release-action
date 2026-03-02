@@ -54,6 +54,17 @@ args=()
 [[ -n "${INPUT_STAGE:-}" ]] && args+=("--stage=${INPUT_STAGE}")
 [[ -n "${INPUT_INCLUDE_PATHS:-}" ]] && args+=("--include-paths=${INPUT_INCLUDE_PATHS}")
 
+if [[ -n "${INPUT_LOG_LEVEL:-}" ]]; then
+  case "$INPUT_LOG_LEVEL" in
+    quiet)   args+=("--quiet") ;;
+    verbose) args+=("--verbose") ;;
+    *)
+      echo "::error::Invalid log_level '$INPUT_LOG_LEVEL'. Must be: quiet or verbose"
+      exit 1
+      ;;
+  esac
+fi
+
 echo "Running: $BIN_PATH $COMMAND ${args[*]}"
 
 output=$("$BIN_PATH" "$COMMAND" --json "${args[@]}")
