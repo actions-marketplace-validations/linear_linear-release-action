@@ -5,11 +5,17 @@ on:
     branches: [main]
   pull_request:
 
+permissions: {}
+
 jobs:
   lint:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
       - name: Lint shell scripts
         run: shellcheck install.sh run.sh
@@ -24,8 +30,12 @@ jobs:
       matrix:
         os: [ubuntu-latest, macos-latest]
     runs-on: ${{ matrix.os }}
+    permissions:
+      contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          persist-credentials: false
 
       - name: Test CLI installation
         run: |
@@ -34,3 +44,15 @@ jobs:
         env:
           CLI_VERSION: latest
           RUNNER_OS: ${{ runner.os }}
+
+  sync-release:
+    name: Sync release management
+    needs: [lint, test-install]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/run-linear-release.yml
+    with:
+      action: sync
+    secrets:
+      LINEAR_RELEASE_MANAGEMENT_ACCESS_KEY: ${{ secrets.LINEAR_RELEASE_MANAGEMENT_ACCESS_KEY }}

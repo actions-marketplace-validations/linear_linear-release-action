@@ -8,11 +8,14 @@ BIN_PATH="${ACTION_PATH}/linear-release"
 case "${RUNNER_OS:-}" in
   Linux)
     ARCH="$(uname -m)"
-    if [[ "$ARCH" != "x86_64" && "$ARCH" != "amd64" ]]; then
-      echo "::error::Unsupported Linux arch: $ARCH. Only x86_64 is supported."
+    if [[ "$ARCH" == "x86_64" || "$ARCH" == "amd64" ]]; then
+      ASSET="linear-release-linux-x64"
+    elif [[ "$ARCH" == "aarch64" || "$ARCH" == "arm64" ]]; then
+      ASSET="linear-release-linux-arm64"
+    else
+      echo "::error::Unsupported Linux arch: $ARCH. Supported: x86_64, aarch64."
       exit 1
     fi
-    ASSET="linear-release-linux-x64"
     ;;
   macOS)
     ARCH="$(uname -m)"
@@ -38,7 +41,14 @@ else
 fi
 
 echo "Downloading Linear Release CLI from $URL"
-curl -fsSL "$URL" -o "$BIN_PATH"
+
+curl_args=(-fsSL)
+# Authenticate when a token is set for a higher rate limit; curl drops the header on the cross-host redirect to the asset CDN, so it's only sent to github.com.
+if [[ -n "${GITHUB_TOKEN:-}" ]]; then
+  curl_args+=(-H "Authorization: Bearer ${GITHUB_TOKEN}")
+fi
+
+curl "${curl_args[@]}" "$URL" -o "$BIN_PATH"
 chmod +x "$BIN_PATH"
 
 echo "Linear Release CLI installed at $BIN_PATH"

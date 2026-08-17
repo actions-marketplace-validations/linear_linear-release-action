@@ -15,7 +15,7 @@ inputs:
     required: false
     default: sync
   name:
-    description: Custom release name. Only used with the "sync" command.
+    description: Custom release name. Applied to the targeted release for "sync", "complete", and "update".
     required: false
   version:
     description: Release version identifier. Maps to CLI --release-version (e.g., "v1.2.3").
@@ -29,13 +29,42 @@ inputs:
   include_paths:
     description: Filter commits by file paths using comma-separated globs (e.g., "apps/web/**,packages/**"). Useful for monorepos.
     required: false
+  include_subjects:
+    description: Filter commits whose subject (first line) matches a regular expression (e.g., "[A-Z]{2,}-[0-9]+"). Composes with include_paths.
+    required: false
+  issue_pattern:
+    description: 'Extract issue identifiers captured by group 1 of a regular expression from commit subjects (e.g., "\[([A-Z]+-\d+)\]"). Additive to the built-in detection.'
+    required: false
+  base_ref:
+    description: "Override the sync scan base. Exclusive: scans <base_ref>..HEAD."
+    required: false
+  links:
+    description: Links to attach to the targeted release. Use one link per line. Each link must be either an absolute URL or "Label=URL".
+    required: false
+  documents:
+    description: Documents to attach to the targeted release. One per line as "[Title=]path/to/file.md" (title inferred from the filename if omitted). Existing documents on the release with the same title are updated.
+    required: false
+  release_notes:
+    description: Path to a markdown file used as the release notes for this release.
+    required: false
+  dry_run:
+    description: 'When "true", scan commits and call read-only Linear APIs but skip the create/update mutations. Logs the action that would have been taken; no release is created or modified.'
+    required: false
+    default: "false"
   log_level:
     description: Log verbosity. Use "quiet" for errors only or "verbose" for detailed progress. Omit for default output.
     required: false
-  cli_version:
-    description: Linear Release CLI version to install (e.g., "v0.5.0" or "latest").
+  timeout:
+    description: Maximum time in seconds to wait for the command to complete. Defaults to 60.
     required: false
-    default: latest
+  cli_version:
+    description: Linear Release CLI version to install (e.g., "v0.15.0"). Set to "latest" to always use the newest CLI.
+    required: false
+    default: v0.15.0
+  github_token:
+    description: GitHub token used to authenticate release downloads through the GitHub CLI. Defaults to the workflow's automatic token. Pass a personal access token or GitHub App token when downloading from another repository or when you need higher rate limits than the default token provides.
+    required: false
+    default: ${{ github.token }}
 
 outputs:
   release-id:
@@ -59,6 +88,7 @@ runs:
       run: bash "${{ github.action_path }}/install.sh"
       env:
         CLI_VERSION: ${{ inputs.cli_version }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
 
     - name: Run Linear Release
       id: run
@@ -72,7 +102,15 @@ runs:
         INPUT_RELEASE_VERSION: ${{ inputs.release_version }}
         INPUT_STAGE: ${{ inputs.stage }}
         INPUT_INCLUDE_PATHS: ${{ inputs.include_paths }}
+        INPUT_INCLUDE_SUBJECTS: ${{ inputs.include_subjects }}
+        INPUT_ISSUE_PATTERN: ${{ inputs.issue_pattern }}
+        INPUT_BASE_REF: ${{ inputs.base_ref }}
+        INPUT_LINKS: ${{ inputs.links }}
+        INPUT_DOCUMENTS: ${{ inputs.documents }}
+        INPUT_RELEASE_NOTES: ${{ inputs.release_notes }}
+        INPUT_DRY_RUN: ${{ inputs.dry_run }}
         INPUT_LOG_LEVEL: ${{ inputs.log_level }}
+        INPUT_TIMEOUT: ${{ inputs.timeout }}
 
     - name: Cleanup CLI binary
       if: always()

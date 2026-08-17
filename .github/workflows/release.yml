@@ -1,0 +1,91 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  release:
+    name: Cut release ${{ github.ref_name }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.vars.outputs.tag }}
+      version: ${{ steps.vars.outputs.version }}
+    steps:
+      - name: Checkout tag
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+
+      - name: Validate tag and resolve major
+        id: vars
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          VERSION="${TAG#v}"
+
+          if ! echo "$VERSION" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$'; then
+            echo "::error::Invalid tag format: $TAG (expected vMAJOR.MINOR.PATCH)"
+            exit 1
+          fi
+
+          MAJOR="${VERSION%%.*}"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "major=v$MAJOR" >> "$GITHUB_OUTPUT"
+
+      - name: Move floating major tag forward
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MAJOR: ${{ steps.vars.outputs.major }}
+          TAG: ${{ steps.vars.outputs.tag }}
+          TARGET_SHA: ${{ github.sha }}
+        run: |
+          gh api --method PATCH "repos/${GITHUB_REPOSITORY}/git/refs/tags/${MAJOR}" \
+            -f sha="${TARGET_SHA}" \
+            -F force=true || \
+          gh api --method POST "repos/${GITHUB_REPOSITORY}/git/refs" \
+            -f ref="refs/tags/${MAJOR}" \
+            -f sha="${TARGET_SHA}"
+
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.vars.outputs.tag }}
+        run: |
+          gh release create "${TAG}" \
+            --title "${TAG}" \
+            --generate-notes
+
+  label-release:
+    name: Label release with version
+    needs: release
+    permissions:
+      contents: read
+    uses: ./.github/workflows/run-linear-release.yml
+    with:
+      action: sync
+      name: Release ${{ needs.release.outputs.version }}
+      version: ${{ needs.release.outputs.tag }}
+    secrets:
+      LINEAR_RELEASE_MANAGEMENT_ACCESS_KEY: ${{ secrets.LINEAR_RELEASE_MANAGEMENT_ACCESS_KEY }}
+
+  complete-release:
+    name: Complete release
+    needs: [release, label-release]
+    permissions:
+      contents: read
+    uses: ./.github/workflows/run-linear-release.yml
+    with:
+      action: complete
+      name: Release ${{ needs.release.outputs.version }}
+      version: ${{ needs.release.outputs.tag }}
+    secrets:
+      LINEAR_RELEASE_MANAGEMENT_ACCESS_KEY: ${{ secrets.LINEAR_RELEASE_MANAGEMENT_ACCESS_KEY }}

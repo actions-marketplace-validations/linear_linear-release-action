@@ -4,7 +4,7 @@
   </a>
 </p>
 <h1 align="center">
-  Linear Release Action
+  @linear/release-action
 </h1>
 <h3 align="center">
   GitHub Action for syncing deployments with Linear releases
@@ -17,9 +17,6 @@
   <a href="https://github.com/linear/linear-release-action/actions/workflows/ci.yml"><img src="https://github.com/linear/linear-release-action/actions/workflows/ci.yml/badge.svg" alt="CI"></a>
   <a href="https://github.com/linear/linear-release-action/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="Linear Release Action is released under the MIT license."></a>
 </p>
-
-> [!IMPORTANT]
-> Linear Release is in **closed beta**. Contact [Linear support](https://linear.app/contact) or your account manager to request access. APIs and commands may change.
 
 ## Overview
 
@@ -43,20 +40,39 @@ steps:
       access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
 ```
 
+### AI-assisted setup
+
+Use the Linear Release setup skill to generate CI configuration tailored to your project. It walks you through continuous vs. scheduled pipelines, monorepo path filtering, and more.
+
+Copy the [SKILL.md](https://github.com/linear/linear-release/blob/main/skills/linear-release-setup/SKILL.md) into your project, or install it with [skills.sh](https://skills.sh):
+
+```bash
+npx skills add linear/linear-release
+```
+
+Once installed, run it from your AI agent with `/linear-release-setup` (or just ask the agent to set up Linear Release — it will pick up the skill automatically).
+
 ## Inputs
 
-| Input           | Required | Default  | Description                                                                |
-| --------------- | -------- | -------- | -------------------------------------------------------------------------- |
-| `access_key`    | Yes      |          | Linear pipeline access key for authentication                              |
-| `command`       | No       | `sync`   | Command to run: `sync`, `complete`, or `update`                            |
-| `name`          | No       |          | Custom release name for `sync`. Continuous pipelines: used on create. Scheduled pipelines: used only when `sync` creates a release; existing release names are preserved. Ignored (with warning) for `complete` and `update`. |
-| `version`       | No       |          | Release version identifier (alias: `release_version`)                      |
-| `stage`         | No       |          | Deployment stage such as `staging` or `production` (required for `update`) |
-| `include_paths` | No       |          | Filter commits by file paths (comma-separated globs for monorepos)         |
-| `log_level`     | No       |          | Log verbosity: `quiet` or `verbose`. Omit for default output.              |
-| `cli_version`   | No       | `latest` | Linear Release CLI version tag to install                                  |
-
-`cli_version` defaults to `latest`, so the action automatically uses the newest CLI release. For reproducible builds, pin an exact tag (for example, `v0.5.0`). If stability is more important than automatic updates, prefer a pinned version.
+| Input           | Required | Default  | Description                                                                                                                                                                                                                   |
+| --------------- | -------- | -------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `access_key`    | Yes      |          | Linear pipeline access key for authentication                                                                                                                                                                                 |
+| `command`       | No       | `sync`   | Command to run: `sync`, `complete`, or `update`                                                                                                                                                                               |
+| `name`          | No       |          | Custom release name. For `sync`, the value is applied to the targeted release — both newly created releases and existing ones get the provided name. For `complete` and `update`, sets the name on the targeted release.                                          |
+| `version`       | No       |          | Release version identifier (alias: `release_version`)                                                                                                                                                                         |
+| `stage`         | No       |          | Deployment stage such as `staging` or `production` (required for `update`)                                                                                                                                                    |
+| `include_paths` | No       |          | Filter commits by file paths (comma-separated globs for monorepos)                                                                                                                                                            |
+| `include_subjects` | No    |          | Filter commits whose subject (first line) matches a regular expression. Composes with `include_paths`.                                                                                                                        |
+| `issue_pattern` | No       |          | Extract issue identifiers captured by group 1 of a regular expression from commit subjects. Additive to the built-in detection.                                                                                                |
+| `base_ref`      | No       |          | Override the `sync` scan base. Exclusive: scans `<base_ref>..HEAD`                                                                                                                                                            |
+| `links`         | No       |          | Links to attach to the targeted release, one per line. Each value must be either an absolute URL or `Label=URL`.                                                                                                              |
+| `documents`     | No       |          | Documents to attach to the targeted release, one per line as `[Title=]path/to/file.md` (title inferred from the filename if omitted). Existing documents with the same title are updated.                                       |
+| `release_notes` | No       |          | Path to a markdown file used as the release notes for this release.                                                                                                                                                            |
+| `dry_run`       | No       | `false`  | When `true`, scan commits and call read-only Linear APIs but skip the create/update mutations. Logs the action that would have been taken; no release is created or modified.                                                  |
+| `log_level`     | No       |          | Log verbosity: `quiet` or `verbose`. Omit for default output.                                                                                                                                                                 |
+| `timeout`       | No       | `60`     | Maximum time in seconds to wait for the command to complete                                                                                                                                                                   |
+| `cli_version`   | No       | `v0.15.0` | Linear Release CLI version to install                                                                                                                                                                                         |
+| `github_token`  | No       | `${{ github.token }}` | GitHub token used to authenticate the CLI download. Authenticating avoids the low anonymous rate limit that can fail on busy or shared runners. Defaults to the workflow's automatic token; pass your own token to use a higher rate limit. |
 
 ## Outputs
 
@@ -124,11 +140,11 @@ Updates the deployment stage of the current release. Only applicable to schedule
 
 ### Command targeting
 
-| Command | With `version` | Without `version` |
-| ------- | -------------- | ----------------- |
-| `sync` | Targets matching version or creates that version | Continuous pipelines create a release with short SHA name/version. Scheduled pipelines use current started/planned flow. |
-| `update` | Updates that exact release version | Updates latest started release, or latest planned release if no started release exists |
-| `complete` | Completes that exact release version | Completes latest started release |
+| Command    | With `version`                                   | Without `version`                                                                                                        |
+| ---------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
+| `sync`     | Targets matching version or creates that version | Continuous pipelines create a release with short SHA name/version. Scheduled pipelines use current started/planned flow. |
+| `update`   | Updates that exact release version               | Updates latest started release, or latest planned release if no started release exists                                   |
+| `complete` | Completes that exact release version             | Completes latest started release                                                                                         |
 
 For scheduled pipelines, prefer always passing `version` in CI, especially when releases overlap.
 
@@ -143,11 +159,98 @@ Filter commits by file paths to track releases for specific packages, useful for
     include_paths: apps/web/**,packages/shared/**
 ```
 
+### Subject filtering
+
+Use `include_subjects` to only scan commits whose subject (first line) matches a regular expression. Useful when the default commit range pulls in noise — direct pushes without issue links, bot commits, or merge commits you don't want appearing in releases. It composes with `include_paths`: a commit must pass both filters to be scanned.
+
+```yaml
+- uses: linear/linear-release-action@v0
+  with:
+    access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+    include_subjects: "[A-Z]{2,}-[0-9]+"
+```
+
+### Custom issue patterns
+
+Use `issue_pattern` when commit subjects reference issues in a convention the built-in detection doesn't cover. The regex is matched case-insensitively anywhere in the subject (first line), with the identifier in capture group 1. Additive to the built-in branch-name, magic-word, and subject-pattern detection.
+
+```yaml
+- uses: linear/linear-release-action@v0
+  with:
+    access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+    issue_pattern: '\[([A-Z]+-\d+)\]'
+```
+
+### Scan base override
+
+Use `base_ref` to explicitly choose the exclusive lower bound for `sync`'s commit scan. This is useful when the automatically selected release baseline is not the range you want for a custom branching workflow, first-time onboarding, or migration.
+
+```yaml
+- uses: linear/linear-release-action@v0
+  with:
+    access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+    base_ref: last-released-ref
+    include_paths: apps/api/**
+```
+
+The base ref is exclusive: Linear Release scans `<base_ref>..HEAD`, matching Git range syntax, and still applies any configured path filters. Pass the last commit, tag, or ref that should be treated as already released, not the first commit you want included.
+
+When `base_ref` is provided, it overrides automatic base selection for that run. After sync, current `HEAD` is stored as the future release baseline. Choosing an older or newer base can reattach or skip commits, so use this only when you intentionally want to own the scan range.
+
+### Release links
+
+`links` attaches external URLs to the release — a GitHub release page, a CI run, a deployment dashboard. One link per line, as either an absolute URL or `Label=URL`. When the label is omitted, Linear derives it from the URL (e.g. `https://github.com/...` → "GitHub").
+
+```yaml
+- uses: linear/linear-release-action@v0
+  with:
+    access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+    links: |
+      https://github.com/acme/app/releases/tag/v1.2.0
+      Deploy dashboard=https://deploys.example.com/v1.2.0
+```
+
+### Documents and release notes
+
+Attach release notes and supporting documents generated by your workflow. `release_notes` is a single file (last set wins if the action runs more than once for the same release). `documents` is repeatable and keyed by title — re-running the action with the same title updates the existing document in place.
+
+```yaml
+- name: Build release artifacts
+  run: |
+    ./scripts/generate-changelog.sh > CHANGELOG.md
+    ./scripts/deploy.sh | tee deploy.log
+
+- uses: linear/linear-release-action@v0
+  with:
+    access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+    release_notes: CHANGELOG.md
+    documents: |
+      Deploy log=deploy.log
+      docs/CHANGELOG.md
+```
+
+File paths are relative to the workflow's working directory. Omit `Title=` to infer the title from the filename (e.g. `docs/CHANGELOG.md` → `CHANGELOG`).
+
+### Dry run
+
+Set `dry_run: true` to preview what the action would do without touching Linear. It scans commits and calls read-only Linear APIs (recent releases, pipeline settings), logs the release it would have created or updated, then stops before any mutation. No release is created or modified, and the action outputs are empty. Works with `sync`, `complete`, and `update`.
+
+```yaml
+- uses: linear/linear-release-action@v0
+  with:
+    access_key: ${{ secrets.LINEAR_ACCESS_KEY }}
+    dry_run: true
+```
+
+## Versioning
+
+Each release of this action defaults to a specific [Linear Release CLI](https://github.com/linear/linear-release) version. Pinning the action — whether by tag (`@v0`) or commit SHA — also pins the CLI. Set `cli_version` to override.
+
 ## Troubleshooting
 
 **"Unsupported OS" or "Unsupported arch" error**
 
-The action only supports Linux x86_64 and macOS x86_64/arm64 runners. Windows is not supported.
+The action supports Linux (x86_64, aarch64) and macOS (x86_64, arm64) runners. Windows is not supported.
 
 **"access_key input is required" error**
 

@@ -44,15 +44,37 @@ if [[ "$COMMAND" == "update" && -z "${INPUT_STAGE:-}" ]]; then
   exit 1
 fi
 
-if [[ "$COMMAND" != "sync" && -n "${INPUT_NAME:-}" ]]; then
-  echo "::warning::name input is ignored when command is '$COMMAND' (only used with 'sync')"
-fi
-
 args=()
 [[ -n "${INPUT_NAME:-}" ]] && args+=("--name=${INPUT_NAME}")
 [[ -n "${INPUT_VERSION:-}" ]] && args+=("--release-version=${INPUT_VERSION}")
 [[ -n "${INPUT_STAGE:-}" ]] && args+=("--stage=${INPUT_STAGE}")
 [[ -n "${INPUT_INCLUDE_PATHS:-}" ]] && args+=("--include-paths=${INPUT_INCLUDE_PATHS}")
+[[ -n "${INPUT_INCLUDE_SUBJECTS:-}" ]] && args+=("--include-subjects=${INPUT_INCLUDE_SUBJECTS}")
+[[ -n "${INPUT_ISSUE_PATTERN:-}" ]] && args+=("--issue-pattern=${INPUT_ISSUE_PATTERN}")
+[[ -n "${INPUT_BASE_REF:-}" ]] && args+=("--base-ref=${INPUT_BASE_REF}")
+if [[ -n "${INPUT_LINKS:-}" ]]; then
+  while IFS= read -r link || [[ -n "$link" ]]; do
+    [[ "$link" =~ ^[[:space:]]*$ ]] && continue
+    args+=("--link=${link}")
+  done <<<"${INPUT_LINKS}"
+fi
+if [[ -n "${INPUT_DOCUMENTS:-}" ]]; then
+  while IFS= read -r doc || [[ -n "$doc" ]]; do
+    [[ "$doc" =~ ^[[:space:]]*$ ]] && continue
+    args+=("--document-file=${doc}")
+  done <<<"${INPUT_DOCUMENTS}"
+fi
+[[ -n "${INPUT_RELEASE_NOTES:-}" ]] && args+=("--release-notes-file=${INPUT_RELEASE_NOTES}")
+[[ -n "${INPUT_TIMEOUT:-}" ]] && args+=("--timeout=${INPUT_TIMEOUT}")
+
+case "${INPUT_DRY_RUN:-false}" in
+  true)        args+=("--dry-run") ;;
+  false|"")    ;;
+  *)
+    echo "::error::Invalid dry_run '${INPUT_DRY_RUN}'. Must be: true or false"
+    exit 1
+    ;;
+esac
 
 if [[ -n "${INPUT_LOG_LEVEL:-}" ]]; then
   case "$INPUT_LOG_LEVEL" in
