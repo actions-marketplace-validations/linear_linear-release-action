@@ -71,7 +71,7 @@ Once installed, run it from your AI agent with `/linear-release-setup` (or just 
 | `dry_run`       | No       | `false`  | When `true`, scan commits and call read-only Linear APIs but skip the create/update mutations. Logs the action that would have been taken; no release is created or modified.                                                  |
 | `log_level`     | No       |          | Log verbosity: `quiet` or `verbose`. Omit for default output.                                                                                                                                                                 |
 | `timeout`       | No       | `60`     | Maximum time in seconds to wait for the command to complete                                                                                                                                                                   |
-| `cli_version`   | No       | `v0.15.0` | Linear Release CLI version to install                                                                                                                                                                                         |
+| `cli_version`   | No       | `v0.17.2` | Linear Release CLI version to install                                                                                                                                                                                         |
 | `github_token`  | No       | `${{ github.token }}` | GitHub token used to authenticate the CLI download. Authenticating avoids the low anonymous rate limit that can fail on busy or shared runners. Defaults to the workflow's automatic token; pass your own token to use a higher rate limit. |
 
 ## Outputs
@@ -142,11 +142,13 @@ Updates the deployment stage of the current release. Only applicable to schedule
 
 | Command    | With `version`                                   | Without `version`                                                                                                        |
 | ---------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `sync`     | Targets matching version or creates that version | Continuous pipelines create a release with short SHA name/version. Scheduled pipelines use current started/planned flow. |
+| `sync`     | Uses the release with that version. For scheduled pipelines, if the current release has no version, assigns the version to it; otherwise creates a release. | Continuous pipelines create a release with short SHA name/version. Scheduled pipelines use current started/planned flow. |
 | `update`   | Updates that exact release version               | Updates latest started release, or latest planned release if no started release exists                                   |
 | `complete` | Completes that exact release version             | Completes latest started release                                                                                         |
 
 For scheduled pipelines, prefer always passing `version` in CI, especially when releases overlap.
+
+If the version is only known when you publish, run `sync` again with the version, then run `complete` with the same version. The second `sync` sets the version on the existing release; `complete` can only mark a release complete if that version is already set.
 
 ### Path filtering
 
@@ -245,6 +247,8 @@ Set `dry_run: true` to preview what the action would do without touching Linear.
 ## Versioning
 
 Each release of this action defaults to a specific [Linear Release CLI](https://github.com/linear/linear-release) version. Pinning the action — whether by tag (`@v0`) or commit SHA — also pins the CLI. Set `cli_version` to override.
+
+CLI releases through `v0.16.0` predate artifact verification and remain available through a legacy compatibility path. For newer releases, the action requires an immutable GitHub release and verifies the downloaded executable against the release's `checksums.txt` before making it executable. Missing, malformed, or mismatched integrity metadata causes installation to fail.
 
 ## Troubleshooting
 

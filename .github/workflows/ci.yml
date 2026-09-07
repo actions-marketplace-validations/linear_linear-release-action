@@ -18,7 +18,10 @@ jobs:
           persist-credentials: false
 
       - name: Lint shell scripts
-        run: shellcheck install.sh run.sh
+        run: shellcheck install.sh run.sh tests/install.test.sh tests/mocks/*
+
+      - name: Test installer verification
+        run: bash tests/install.test.sh
 
       - name: Validate action.yml
         run: |
@@ -44,6 +47,7 @@ jobs:
         env:
           CLI_VERSION: latest
           RUNNER_OS: ${{ runner.os }}
+          GITHUB_TOKEN: ${{ github.token }}
 
   sync-release:
     name: Sync release management
